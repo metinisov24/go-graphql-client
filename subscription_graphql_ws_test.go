@@ -184,7 +184,7 @@ func TestGraphqlWS_Subscription(t *testing.T) {
 			},
 		},
 	}
-	err = client.Mutate(context.Background(), &q, variables, OperationName("InsertUser"))
+	err = client.Mutate(context.Background(), &q, variables, nil, OperationName("InsertUser"))
 
 	if err != nil {
 		t.Fatalf("got error: %v, want: nil", err)
@@ -282,7 +282,7 @@ func TestGraphqlWS_SubscriptionRerun(t *testing.T) {
 			},
 		},
 	}
-	err = client.Mutate(context.Background(), &q, variables, OperationName("InsertUser"))
+	err = client.Mutate(context.Background(), &q, variables, nil, OperationName("InsertUser"))
 
 	if err != nil {
 		t.Fatalf("got error: %v, want: nil", err)

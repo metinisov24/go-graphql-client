@@ -47,57 +47,57 @@ func NewClient(url string, httpClient Doer) *Client {
 // Query executes a single GraphQL query request,
 // with a query derived from q, populating the response into it.
 // q should be a pointer to struct that corresponds to the GraphQL schema.
-func (c *Client) Query(ctx context.Context, q any, variables map[string]any, options ...Option) error {
-	return c.do(ctx, queryOperation, q, variables, options...)
+func (c *Client) Query(ctx context.Context, q any, variables map[string]any, additionalHeaders map[string]any, options ...Option) error {
+	return c.do(ctx, queryOperation, q, variables, additionalHeaders, options...)
 }
 
 // NamedQuery executes a single GraphQL query request, with operation name
 //
 // Deprecated: this is the shortcut of Query method, with NewOperationName option
-func (c *Client) NamedQuery(ctx context.Context, name string, q any, variables map[string]any, options ...Option) error {
-	return c.do(ctx, queryOperation, q, variables, append(options, OperationName(name))...)
+func (c *Client) NamedQuery(ctx context.Context, name string, q any, variables map[string]any, additionalHeaders map[string]any, options ...Option) error {
+	return c.do(ctx, queryOperation, q, variables, additionalHeaders, append(options, OperationName(name))...)
 }
 
 // Mutate executes a single GraphQL mutation request,
 // with a mutation derived from m, populating the response into it.
 // m should be a pointer to struct that corresponds to the GraphQL schema.
-func (c *Client) Mutate(ctx context.Context, m any, variables map[string]any, options ...Option) error {
-	return c.do(ctx, mutationOperation, m, variables, options...)
+func (c *Client) Mutate(ctx context.Context, m any, variables map[string]any, additionalHeaders map[string]any, options ...Option) error {
+	return c.do(ctx, mutationOperation, m, variables, additionalHeaders, options...)
 }
 
 // NamedMutate executes a single GraphQL mutation request, with operation name
 //
 // Deprecated: this is the shortcut of Mutate method, with NewOperationName option
-func (c *Client) NamedMutate(ctx context.Context, name string, m any, variables map[string]any, options ...Option) error {
-	return c.do(ctx, mutationOperation, m, variables, append(options, OperationName(name))...)
+func (c *Client) NamedMutate(ctx context.Context, name string, m any, variables map[string]any, additionalHeaders map[string]any, options ...Option) error {
+	return c.do(ctx, mutationOperation, m, variables, additionalHeaders, append(options, OperationName(name))...)
 }
 
 // Query executes a single GraphQL query request,
 // with a query derived from q, populating the response into it.
 // q should be a pointer to struct that corresponds to the GraphQL schema.
 // return raw bytes message.
-func (c *Client) QueryRaw(ctx context.Context, q any, variables map[string]any, options ...Option) ([]byte, error) {
-	return c.doRaw(ctx, queryOperation, q, variables, options...)
+func (c *Client) QueryRaw(ctx context.Context, q any, variables map[string]any, additionalHeaders map[string]any, options ...Option) ([]byte, error) {
+	return c.doRaw(ctx, queryOperation, q, variables, additionalHeaders, options...)
 }
 
 // NamedQueryRaw executes a single GraphQL query request, with operation name
 // return raw bytes message.
-func (c *Client) NamedQueryRaw(ctx context.Context, name string, q any, variables map[string]any, options ...Option) ([]byte, error) {
-	return c.doRaw(ctx, queryOperation, q, variables, append(options, OperationName(name))...)
+func (c *Client) NamedQueryRaw(ctx context.Context, name string, q any, variables map[string]any, additionalHeaders map[string]any, options ...Option) ([]byte, error) {
+	return c.doRaw(ctx, queryOperation, q, variables, additionalHeaders, append(options, OperationName(name))...)
 }
 
 // MutateRaw executes a single GraphQL mutation request,
 // with a mutation derived from m, populating the response into it.
 // m should be a pointer to struct that corresponds to the GraphQL schema.
 // return raw bytes message.
-func (c *Client) MutateRaw(ctx context.Context, m any, variables map[string]any, options ...Option) ([]byte, error) {
-	return c.doRaw(ctx, mutationOperation, m, variables, options...)
+func (c *Client) MutateRaw(ctx context.Context, m any, variables map[string]any, additionalHeaders map[string]any, options ...Option) ([]byte, error) {
+	return c.doRaw(ctx, mutationOperation, m, variables, additionalHeaders, options...)
 }
 
 // NamedMutateRaw executes a single GraphQL mutation request, with operation name
 // return raw bytes message.
-func (c *Client) NamedMutateRaw(ctx context.Context, name string, m any, variables map[string]any, options ...Option) ([]byte, error) {
-	return c.doRaw(ctx, mutationOperation, m, variables, append(options, OperationName(name))...)
+func (c *Client) NamedMutateRaw(ctx context.Context, name string, m any, variables map[string]any, additionalHeaders map[string]any, options ...Option) ([]byte, error) {
+	return c.doRaw(ctx, mutationOperation, m, variables, additionalHeaders, append(options, OperationName(name))...)
 }
 
 // buildQueryAndOptions the common method to build query and options
@@ -121,7 +121,7 @@ func (c *Client) buildQueryAndOptions(op operationType, v any, variables map[str
 }
 
 // Request the common method that send graphql request
-func (c *Client) request(ctx context.Context, query string, variables map[string]any, options *constructOptionsOutput) ([]byte, []byte, *http.Response, io.Reader, Errors) {
+func (c *Client) request(ctx context.Context, query string, variables map[string]any, options *constructOptionsOutput, additionalHeaders map[string]any) ([]byte, []byte, *http.Response, io.Reader, Errors) {
 	in := GraphQLRequestPayload{
 		Query:     query,
 		Variables: variables,
@@ -147,6 +147,12 @@ func (c *Client) request(ctx context.Context, query string, variables map[string
 		return nil, nil, nil, nil, Errors{e}
 	}
 	request.Header.Add("Content-Type", "application/json")
+
+	if len(additionalHeaders) > 0 {
+		for k, v := range additionalHeaders {
+			request.Header.Add(k, fmt.Sprintf("%v", v))
+		}
+	}
 
 	if c.requestModifier != nil {
 		c.requestModifier(request)
@@ -248,12 +254,12 @@ func (c *Client) request(ctx context.Context, query string, variables map[string
 
 // do executes a single GraphQL operation.
 // return raw message and error
-func (c *Client) doRaw(ctx context.Context, op operationType, v any, variables map[string]any, options ...Option) ([]byte, error) {
+func (c *Client) doRaw(ctx context.Context, op operationType, v any, variables map[string]any, additionalHeaders map[string]any, options ...Option) ([]byte, error) {
 	query, optionsOutput, err := c.buildQueryAndOptions(op, v, variables, options...)
 	if err != nil {
 		return nil, err
 	}
-	data, _, _, _, errs := c.request(ctx, query, variables, optionsOutput)
+	data, _, _, _, errs := c.request(ctx, query, variables, optionsOutput, additionalHeaders)
 	if len(errs) > 0 {
 		return data, errs
 	}
@@ -262,37 +268,37 @@ func (c *Client) doRaw(ctx context.Context, op operationType, v any, variables m
 }
 
 // do executes a single GraphQL operation and unmarshal json.
-func (c *Client) do(ctx context.Context, op operationType, v any, variables map[string]any, options ...Option) error {
+func (c *Client) do(ctx context.Context, op operationType, v any, variables map[string]any, additionalHeaders map[string]any, options ...Option) error {
 	query, optionsOutput, err := c.buildQueryAndOptions(op, v, variables, options...)
 	if err != nil {
 		return err
 	}
-	data, extData, resp, respBuf, errs := c.request(ctx, query, variables, optionsOutput)
+	data, extData, resp, respBuf, errs := c.request(ctx, query, variables, optionsOutput, additionalHeaders)
 
 	return c.processResponse(v, data, optionsOutput.extensions, extData, resp, respBuf, errs)
 }
 
 // Executes a pre-built query and unmarshals the response into v. Unlike the Query method you have to specify in the query the
 // fields that you want to receive as they are not inferred from v. This method is useful if you need to build the query dynamically.
-func (c *Client) Exec(ctx context.Context, query string, v any, variables map[string]any, options ...Option) error {
+func (c *Client) Exec(ctx context.Context, query string, v any, variables map[string]any, additionalHeaders map[string]any, options ...Option) error {
 	optionsOutput, err := constructOptions(options)
 	if err != nil {
 		return err
 	}
 
-	data, extData, resp, respBuf, errs := c.request(ctx, query, variables, optionsOutput)
+	data, extData, resp, respBuf, errs := c.request(ctx, query, variables, optionsOutput, additionalHeaders)
 	return c.processResponse(v, data, optionsOutput.extensions, extData, resp, respBuf, errs)
 }
 
 // Executes a pre-built query and returns the raw json message. Unlike the Query method you have to specify in the query the
 // fields that you want to receive as they are not inferred from the interface. This method is useful if you need to build the query dynamically.
-func (c *Client) ExecRaw(ctx context.Context, query string, variables map[string]any, options ...Option) ([]byte, error) {
+func (c *Client) ExecRaw(ctx context.Context, query string, variables map[string]any, additionalHeaders map[string]any, options ...Option) ([]byte, error) {
 	optionsOutput, err := constructOptions(options)
 	if err != nil {
 		return nil, err
 	}
 
-	data, _, _, _, errs := c.request(ctx, query, variables, optionsOutput)
+	data, _, _, _, errs := c.request(ctx, query, variables, optionsOutput, additionalHeaders)
 	if len(errs) > 0 {
 		return data, errs
 	}
@@ -302,13 +308,13 @@ func (c *Client) ExecRaw(ctx context.Context, query string, variables map[string
 // ExecRawWithExtensions execute a pre-built query and returns the raw json message and a map with extensions (values also as raw json objects). Unlike the
 // Query method you have to specify in the query the fields that you want to receive as they are not inferred from the interface. This method
 // is useful if you need to build the query dynamically.
-func (c *Client) ExecRawWithExtensions(ctx context.Context, query string, variables map[string]any, options ...Option) ([]byte, []byte, error) {
+func (c *Client) ExecRawWithExtensions(ctx context.Context, query string, variables map[string]any, additionalHeaders map[string]any, options ...Option) ([]byte, []byte, error) {
 	optionsOutput, err := constructOptions(options)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	data, ext, _, _, errs := c.request(ctx, query, variables, optionsOutput)
+	data, ext, _, _, errs := c.request(ctx, query, variables, optionsOutput, additionalHeaders)
 	if len(errs) > 0 {
 		return data, ext, errs
 	}

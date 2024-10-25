@@ -436,7 +436,7 @@ func TestTransportWS_ResetClient(t *testing.T) {
 				},
 			},
 		}
-		err = client.Mutate(context.Background(), &q, variables, OperationName("InsertUser"))
+		err = client.Mutate(context.Background(), &q, variables, nil, OperationName("InsertUser"))
 
 		if err != nil {
 			t.Errorf("got error: %v, want: nil", err)

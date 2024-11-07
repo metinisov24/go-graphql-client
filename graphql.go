@@ -137,6 +137,13 @@ func (c *Client) request(ctx context.Context, query string, variables map[string
 		return nil, nil, nil, nil, Errors{newError(ErrGraphQLEncode, err)}
 	}
 
+	//print to console formatted
+
+	// var prettyJSON bytes.Buffer
+	/*
+		_ = json.Indent(&buf, buf.Bytes(), "", "  ")
+		fmt.Println(string(buf.Bytes())) */
+
 	reqReader := bytes.NewReader(buf.Bytes())
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, c.url, reqReader)
 	if err != nil {
@@ -150,7 +157,18 @@ func (c *Client) request(ctx context.Context, query string, variables map[string
 
 	if len(additionalHeaders) > 0 {
 		for k, v := range additionalHeaders {
-			request.Header.Add(k, fmt.Sprintf("%v", v))
+			//if the header name is woocommerce-session and Session is not prefixed, prfix it
+			if k == "woocommerce-session" {
+				if !strings.HasPrefix(fmt.Sprintf("%v", v), "Session") {
+					request.Header.Add(k, fmt.Sprintf("Session %v", v))
+				} else {
+
+					request.Header.Add(k, fmt.Sprintf("%v", v))
+				}
+			} else {
+				request.Header.Add(k, fmt.Sprintf("%v", v))
+			}
+
 		}
 	}
 
@@ -292,17 +310,17 @@ func (c *Client) Exec(ctx context.Context, query string, v any, variables map[st
 
 // Executes a pre-built query and returns the raw json message. Unlike the Query method you have to specify in the query the
 // fields that you want to receive as they are not inferred from the interface. This method is useful if you need to build the query dynamically.
-func (c *Client) ExecRaw(ctx context.Context, query string, variables map[string]any, additionalHeaders map[string]any, options ...Option) ([]byte, error) {
+func (c *Client) ExecRaw(ctx context.Context, query string, variables map[string]any, additionalHeaders map[string]any, options ...Option) ([]byte, *http.Response, error) {
 	optionsOutput, err := constructOptions(options)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	data, _, _, _, errs := c.request(ctx, query, variables, optionsOutput, additionalHeaders)
+	data, _, fullResponse, _, errs := c.request(ctx, query, variables, optionsOutput, additionalHeaders)
 	if len(errs) > 0 {
-		return data, errs
+		return data, nil, errs
 	}
-	return data, nil
+	return data, fullResponse, nil
 }
 
 // ExecRawWithExtensions execute a pre-built query and returns the raw json message and a map with extensions (values also as raw json objects). Unlike the
